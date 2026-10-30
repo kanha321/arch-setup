@@ -87,14 +87,14 @@ class Executor:
                 return True
         return False
 
-    def _wait_dbus(self, m: Manifest) -> bool:
-        if not m.dbus_names:
+    def _wait_dbus(self, names: list[str]) -> bool:
+        if not names:
             return True
 
         def free() -> bool:
             out = self.runner.run(["busctl", "--user", "list", "--no-legend"]).stdout
             held = {line.split()[0] for line in out.splitlines() if line.strip()}
-            return not held & set(m.dbus_names)
+            return not held & set(names)
 
         return self._poll(free, DBUS_WAIT)
 
@@ -103,7 +103,10 @@ class Executor:
         if step.kind == "stop":
             return self._stop(m)
         if step.kind == "wait_dbus":
-            return self._wait_dbus(m)
+            names = list(m.dbus_names)
+            if step.arg:
+                names += self.manifests[step.arg].dbus_names
+            return self._wait_dbus(names)
         cmd = self._command(step)
         if cmd is None:
             return True

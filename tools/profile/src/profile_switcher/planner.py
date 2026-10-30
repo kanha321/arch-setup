@@ -20,7 +20,7 @@ def make_plan(active: Manifest, target: Manifest) -> list[Step]:
     steps = [
         Step("preflight", new),
         Step("stop", old),
-        Step("wait_dbus", old),
+        Step("wait_dbus", old, new),
         Step("unstow", old),
         Step("stow", new),
         Step("reload", new),
