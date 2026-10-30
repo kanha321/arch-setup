@@ -1,0 +1,1 @@
+-- profile: bare (no shell)

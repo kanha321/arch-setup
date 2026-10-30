@@ -2,3 +2,4 @@ name       = "bare"
 compositor = "hyprland"
 start      = "true"
 stop       = "true"
+stow           = ["hypr"]

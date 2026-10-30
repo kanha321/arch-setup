@@ -1,0 +1,2 @@
+-- profile: caelestia
+-- "caelestia:*" global-shortcut binds get added once their names are captured.
