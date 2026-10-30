@@ -61,7 +61,10 @@ class Executor:
         cmd = self._command(step)
         return cmd is None or self.runner.run(cmd).returncode == 0
 
-    def _rollback(self, old: str, new: str) -> bool:
+    def _rollback(self, old: str, new: str, failed_kind: str = "") -> bool:
+        if failed_kind in ("preflight", "stop"):
+            self._write_journal({"state": "idle", "active": old})
+            return True
         self._write_journal({"state": "rolling_back", "from": old, "to": new})
         steps = (
             Step("stop", new),
@@ -85,5 +88,5 @@ class Executor:
                 continue
             self._write_journal({"state": "switching", "from": old, "to": new, "step": i})
             if not self._run_step(step):
-                return "rolled_back" if self._rollback(old, new) else "failed"
+                return "rolled_back" if self._rollback(old, new, step.kind) else "failed"
         return "ok"

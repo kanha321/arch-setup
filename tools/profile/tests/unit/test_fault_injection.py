@@ -84,3 +84,15 @@ def test_failure_during_rollback_marks_journal_broken(tmp_path, second):
     result = ex.execute(make_plan(ms["a"], ms["b"]), "a", "b")
     assert result == "failed"
     assert json.loads(journal.read_text()) == {"state": "broken", "from": "a", "to": "b"}
+
+
+def test_failed_stop_does_not_touch_anything_else(tmp_path):
+    world, calls = World(0), []
+    orig = world.run
+    world.run = lambda cmd, timeout=10: (calls.append(cmd), orig(cmd, timeout))[1]
+    journal = tmp_path / "state.json"
+    ms = {"a": mk("a"), "b": mk("b")}
+    ex = Executor(world, journal, tmp_path / "dots", tmp_path / "home", ms)
+    assert ex.execute(make_plan(ms["a"], ms["b"]), "a", "b") == "rolled_back"
+    assert calls == [["sh", "-c", "stop-a"]]
+    assert json.loads(journal.read_text()) == {"state": "idle", "active": "a"}
