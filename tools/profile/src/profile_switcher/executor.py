@@ -90,3 +90,11 @@ class Executor:
             if not self._run_step(step):
                 return "rolled_back" if self._rollback(old, new, step.kind) else "failed"
         return "ok"
+
+    def repair(self) -> str:
+        if not self.journal.exists():
+            return "idle"
+        state = json.loads(self.journal.read_text())
+        if state["state"] == "idle":
+            return "idle"
+        return "repaired" if self._rollback(state["from"], state["to"]) else "failed"
