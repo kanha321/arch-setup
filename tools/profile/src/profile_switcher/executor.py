@@ -57,12 +57,29 @@ class Executor:
                 return self._stow(step.profile, delete=False)
         return None
 
-    def execute(self, plan: list[Step], old: str, new: str) -> None:
+    def _run_step(self, step: Step) -> bool:
+        cmd = self._command(step)
+        return cmd is None or self.runner.run(cmd).returncode == 0
+
+    def _rollback(self, old: str, new: str) -> None:
+        self._write_journal({"state": "rolling_back", "from": old, "to": new})
+        for step in (
+            Step("stop", new),
+            Step("unstow", new),
+            Step("stow", old),
+            Step("reload", old),
+            Step("start", old),
+        ):
+            self._run_step(step)
+        self._write_journal({"state": "idle", "active": old})
+
+    def execute(self, plan: list[Step], old: str, new: str) -> str:
         for i, step in enumerate(plan):
             if step.kind == "commit":
                 self._write_journal({"state": "idle", "active": new})
                 continue
             self._write_journal({"state": "switching", "from": old, "to": new, "step": i})
-            cmd = self._command(step)
-            if cmd is not None:
-                self.runner.run(cmd)
+            if not self._run_step(step):
+                self._rollback(old, new)
+                return "rolled_back"
+        return "ok"
