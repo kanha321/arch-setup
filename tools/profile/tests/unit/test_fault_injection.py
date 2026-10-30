@@ -61,3 +61,26 @@ def test_any_single_failure_ends_fully_on_a(tmp_path, fail_at):
     assert result == "rolled_back"
     assert world.stowed == {"a"} and world.running == {"a"}
     assert j == {"state": "idle", "active": "a"}
+
+
+class DoubleFault(World):
+    def __init__(self, second):
+        super().__init__(5)
+        self.second = second
+
+    def run(self, cmd, timeout=10):
+        if self.n == self.second:
+            self.n += 1
+            return Result(1, "", "boom2")
+        return super().run(cmd, timeout)
+
+
+@pytest.mark.parametrize("second", range(6, 11))
+def test_failure_during_rollback_marks_journal_broken(tmp_path, second):
+    world = DoubleFault(second)
+    journal = tmp_path / "state.json"
+    ms = {"a": mk("a"), "b": mk("b")}
+    ex = Executor(world, journal, tmp_path / "dots", tmp_path / "home", ms)
+    result = ex.execute(make_plan(ms["a"], ms["b"]), "a", "b")
+    assert result == "failed"
+    assert json.loads(journal.read_text()) == {"state": "broken", "from": "a", "to": "b"}

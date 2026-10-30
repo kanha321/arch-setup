@@ -61,17 +61,22 @@ class Executor:
         cmd = self._command(step)
         return cmd is None or self.runner.run(cmd).returncode == 0
 
-    def _rollback(self, old: str, new: str) -> None:
+    def _rollback(self, old: str, new: str) -> bool:
         self._write_journal({"state": "rolling_back", "from": old, "to": new})
-        for step in (
+        steps = (
             Step("stop", new),
             Step("unstow", new),
             Step("stow", old),
             Step("reload", old),
             Step("start", old),
-        ):
-            self._run_step(step)
-        self._write_journal({"state": "idle", "active": old})
+        )
+        results = [self._run_step(s) for s in steps]
+        ok = all(results)
+        if ok:
+            self._write_journal({"state": "idle", "active": old})
+        else:
+            self._write_journal({"state": "broken", "from": old, "to": new})
+        return ok
 
     def execute(self, plan: list[Step], old: str, new: str) -> str:
         for i, step in enumerate(plan):
@@ -80,6 +85,5 @@ class Executor:
                 continue
             self._write_journal({"state": "switching", "from": old, "to": new, "step": i})
             if not self._run_step(step):
-                self._rollback(old, new)
-                return "rolled_back"
+                return "rolled_back" if self._rollback(old, new) else "failed"
         return "ok"
