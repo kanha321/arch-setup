@@ -1,0 +1,23 @@
+caelestia:mediaStop -> Stop media playback
+caelestia:mediaNext -> Next track
+caelestia:mediaPrev -> Previous track
+caelestia:mediaToggle -> Toggle media playback
+caelestia:refreshDevices -> Reload devices
+caelestia:clearNotifs -> Clear all notifications
+caelestia:brightnessDown -> Decrease brightness
+caelestia:brightnessUp -> Increase brightness
+caelestia:utilities -> Toggle utilities
+caelestia:sidebar -> Toggle sidebar
+caelestia:launcherInterrupt -> Interrupt launcher keybind
+caelestia:launcher -> Toggle launcher
+caelestia:session -> Toggle session menu
+caelestia:dashboard -> Toggle dashboard
+caelestia:showall -> Toggle launcher, dashboard and osd
+caelestia:nexus -> Open nexus
+caelestia:unlock -> Unlock the current session
+caelestia:lock -> Lock the current session
+caelestia:screenshotFreezeClip -> Open screenshot tool (freeze mode, clipboard)
+caelestia:screenshotClip -> Open screenshot tool (clipboard)
+caelestia:screenshotFreeze -> Open screenshot tool (freeze mode)
+caelestia:screenshot -> Open screenshot tool
+

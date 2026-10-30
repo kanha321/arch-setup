@@ -1,0 +1,51 @@
+Usage: dms ipc call <target> <function> [args...]
+
+Targets:
+  aqueous          overview, selectSeat, snapshot, status
+  audio            cycleoutput, decrement, getmaxvolume, getmaxvolumefor, getmono, increment, micmute, mute, setmaxvolume, setmaxvolumefor, setmic, setmono, setvolume, status
+  bar              autoHide, getPosition, hide, manualHide, reveal, setPosition, status, toggle, toggleAutoHide, toggleReveal
+  brightness       decrement, disableExponential, enableExponential, increment, list, set, status, toggleExponential
+  clipboard        close, open, toggle
+  color-picker     close, closeInstant, open, openColor, toggle, toggleInstant
+  control-center   back, hide, open, openWith, status, toggle
+  dankdash         wallpaper
+  dash             close, open, openAt, resolveTabIndex, toggle, toggleAt
+  defaultApp       browser, calendar, fileManager, imageViewer, mail, musicPlayer, pdfReader, textEditor, videoPlayer
+  desktopWidget    disable, edit, enable, list, setClickThrough, setOverlay, setSyncPosition, status, toggleClickThrough, toggleEnabled, toggleOverlay, toggleSyncPosition
+  dock             autoHide, autoHideFor, edit, editFor, hide, hideFor, manualHide, reveal, revealFor, status, statusFor, toggle, toggleAutoHide, toggleFor
+  file             browse
+  hypr             closeBinds, closeOverview, openBinds, openOverview, toggleBinds, toggleOverview
+  inhibit          disable, enable, enableFor, reason, status, toggle
+  keybinds         close, open, openWithPath, toggle, toggleWithPath
+  launcher         close, open, openQuery, openWith, toggle, toggleQuery, toggleWith
+  lock             demo, forceReset, isLocked, lock, lockAndOutputsOff, status, unlock
+  mic              decrement, increment, mute, setvolume, status
+  mpris            decrement, increment, list, next, pause, play, playPause, previous, setvolume, stop
+  mux              close, open, toggle
+  night            contrast, disable, enable, gamma, getCurrentTemp, getDayTemp, getSchedule, getTargetTemp, setDayTemp, setTargetTemp, status, toggle
+  niri             screenshot, screenshotScreen, screenshotWindow
+  notepad          close, collapse, expand, getActiveNotepadInstance, getFocusedScreenName, open, openFile, toggle, toggleExpand
+  notifications    clearAll, close, disableDoNotDisturb, dismiss, dismissAllPopups, enableDoNotDisturbFor, enableDoNotDisturbIndefinitely, enableDoNotDisturbUntil, enableDoNotDisturbUntilTomorrowMorning, getDoNotDisturb, getDoNotDisturbUntil, invokeLast, open, toggle, toggleDoNotDisturb
+  outputs          current, cycle, cycleProfile, listProfiles, refresh, setProfile, status, toggleAuto
+  plugin-scan      list, reload, rescan, scan, status
+  plugins          disable, enable, list, reload, status, toggle
+  powermenu        close, open, toggle
+  powerprofile     close, cycle, list, open, set, status, toggle
+  processlist      close, focusOrToggle, open, toggle
+  profile          clearImage, getImage, setImage
+  scratchpad       move, restore, toggle
+  screenshot       begin, end, getSurfaces
+  settings         close, dump, dumpSession, focusOrToggle, focusOrToggleWith, get, open, openWith, set, tabs, toggle, toggleWith
+  spotlight        close, open, openQuery, openWith, toggle, toggleQuery, toggleWith
+  spotlight-bar    close, open, openQuery, openWith, toggle, toggleQuery, toggleWith
+  systemupdater    close, open, toggle, updatestatus
+  theme            dark, getMode, light, toggle
+  tmux             close, open, toggle
+  toast            dismiss, error, errorWith, hide, info, infoWith, status, warn, warnWith
+  tray             activate, list, menu, status
+  wallpaper        clear, get, getFor, next, nextFor, prev, prevFor, set, setFor
+  welcome          doctor, open, page
+  wellbeing        appLimit, dailyLimit, disable, enable, status, today, toggle
+  widget           hide, list, openQuery, openWith, reset, reveal, status, toggle, toggleQuery, toggleWith, visibility
+  window-rules     close, getFocusedWindow, open, toggle
+  workspace-rename close, open, toggle
