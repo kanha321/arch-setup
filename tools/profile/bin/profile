@@ -1,0 +1,2 @@
+#!/bin/sh
+exec env PYTHONPATH="$HOME/dotfiles/tools/profile/src" python -m profile_switcher "$@"
