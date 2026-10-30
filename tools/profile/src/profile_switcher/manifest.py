@@ -25,6 +25,20 @@ class Manifest:
     hooks: dict[str, str] = field(default_factory=dict)
 
 
+def _str_list(data: dict, key: str) -> list[str]:
+    value = data.get(key, [])
+    if not isinstance(value, list) or not all(isinstance(v, str) for v in value):
+        raise ManifestError(f"{key} must be a list of strings")
+    return list(value)
+
+
+def _positive_int(data: dict, key: str, default: int) -> int:
+    value = data.get(key, default)
+    if isinstance(value, bool) or not isinstance(value, int) or value <= 0:
+        raise ManifestError(f"{key} must be a positive integer")
+    return value
+
+
 def parse_manifest(text: str) -> Manifest:
     try:
         data = tomllib.loads(text)
@@ -45,10 +59,10 @@ def parse_manifest(text: str) -> Manifest:
         compositor=compositor,
         start=data["start"],
         stop=data["stop"],
-        packages=list(data.get("packages", [])),
-        stow=list(data.get("stow", [])),
-        claims=list(data.get("claims", [])),
+        packages=_str_list(data, "packages"),
+        stow=_str_list(data, "stow"),
+        claims=_str_list(data, "claims"),
         health=data.get("health"),
-        health_timeout=int(data.get("health_timeout", 10)),
+        health_timeout=_positive_int(data, "health_timeout", 10),
         hooks=dict(data.get("hooks", {})),
     )
