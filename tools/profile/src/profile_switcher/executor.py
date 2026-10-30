@@ -2,11 +2,17 @@ from __future__ import annotations
 
 import json
 import os
+from collections.abc import Callable
 from pathlib import Path
 
+from profile_switcher.clock import Clock, RealClock
 from profile_switcher.manifest import Manifest
 from profile_switcher.planner import Step
 from profile_switcher.runner import Runner
+
+DBUS_WAIT = 5.0
+KILL_WAIT = 2.0
+POLL = 0.2
 
 
 class Executor:
@@ -17,12 +23,14 @@ class Executor:
         dotfiles: Path,
         home: Path,
         manifests: dict[str, Manifest],
+        clock: Clock | None = None,
     ):
         self.runner = runner
         self.journal = journal
         self.dotfiles = dotfiles
         self.home = home
         self.manifests = manifests
+        self.clock = clock or RealClock()
 
     def _write_journal(self, data: dict) -> None:
         self.journal.parent.mkdir(parents=True, exist_ok=True)
@@ -57,9 +65,50 @@ class Executor:
                 return self._stow(step.profile, delete=False)
         return None
 
-    def _run_step(self, step: Step) -> bool:
+    def _poll(self, done: Callable[[], bool], timeout: float) -> bool:
+        deadline = self.clock.now() + timeout
+        while not done():
+            if self.clock.now() >= deadline:
+                return False
+            self.clock.sleep(POLL)
+        return True
+
+    def _gone(self, m: Manifest) -> bool:
+        return self.runner.run(["pgrep", "-f", m.process or ""]).returncode != 0
+
+    def _stop(self, m: Manifest) -> bool:
+        if self.runner.run(["sh", "-c", m.stop], m.stop_timeout).returncode != 0:
+            return False
+        if not m.process or self._poll(lambda: self._gone(m), m.stop_timeout):
+            return True
+        for sig in ("TERM", "KILL"):
+            self.runner.run(["pkill", f"-{sig}", "-f", m.process])
+            if self._poll(lambda: self._gone(m), KILL_WAIT):
+                return True
+        return False
+
+    def _wait_dbus(self, m: Manifest) -> bool:
+        if not m.dbus_names:
+            return True
+
+        def free() -> bool:
+            out = self.runner.run(["busctl", "--user", "list", "--no-legend"]).stdout
+            held = {line.split()[0] for line in out.splitlines() if line.strip()}
+            return not held & set(m.dbus_names)
+
+        return self._poll(free, DBUS_WAIT)
+
+    def run_step(self, step: Step) -> bool:
+        m = self.manifests[step.profile]
+        if step.kind == "stop":
+            return self._stop(m)
+        if step.kind == "wait_dbus":
+            return self._wait_dbus(m)
         cmd = self._command(step)
-        return cmd is None or self.runner.run(cmd).returncode == 0
+        if cmd is None:
+            return True
+        timeout = m.health_timeout if step.kind == "health" else 10
+        return self.runner.run(cmd, timeout).returncode == 0
 
     def _rollback(self, old: str, new: str, failed_kind: str = "") -> bool:
         if failed_kind in ("preflight", "stop"):
@@ -73,7 +122,7 @@ class Executor:
             Step("reload", old),
             Step("start", old),
         )
-        results = [self._run_step(s) for s in steps]
+        results = [self.run_step(s) for s in steps]
         ok = all(results)
         if ok:
             self._write_journal({"state": "idle", "active": old})
@@ -87,7 +136,7 @@ class Executor:
                 self._write_journal({"state": "idle", "active": new})
                 continue
             self._write_journal({"state": "switching", "from": old, "to": new, "step": i})
-            if not self._run_step(step):
+            if not self.run_step(step):
                 return "rolled_back" if self._rollback(old, new, step.kind) else "failed"
         return "ok"
 

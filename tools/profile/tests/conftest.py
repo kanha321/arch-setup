@@ -19,3 +19,21 @@ class FakeRunner:
 @pytest.fixture
 def runner():
     return FakeRunner()
+
+
+class FakeClock:
+    def __init__(self):
+        self.t = 0.0
+        self.sleeps: list[float] = []
+
+    def now(self):
+        return self.t
+
+    def sleep(self, seconds):
+        self.t += seconds
+        self.sleeps.append(seconds)
+
+
+@pytest.fixture
+def clock():
+    return FakeClock()

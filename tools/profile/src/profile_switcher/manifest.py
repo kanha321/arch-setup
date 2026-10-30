@@ -23,6 +23,9 @@ class Manifest:
     health: str | None = None
     health_timeout: int = 10
     hooks: dict[str, str] = field(default_factory=dict)
+    process: str | None = None
+    dbus_names: list[str] = field(default_factory=list)
+    stop_timeout: int = 5
 
 
 def _str_list(data: dict, key: str) -> list[str]:
@@ -65,4 +68,7 @@ def parse_manifest(text: str) -> Manifest:
         health=data.get("health"),
         health_timeout=_positive_int(data, "health_timeout", 10),
         hooks=dict(data.get("hooks", {})),
+        process=data.get("process"),
+        dbus_names=_str_list(data, "dbus_names"),
+        stop_timeout=_positive_int(data, "stop_timeout", 5),
     )
