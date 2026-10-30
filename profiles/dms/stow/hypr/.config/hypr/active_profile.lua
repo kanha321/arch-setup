@@ -7,3 +7,24 @@ for _, mod in ipairs({ "dms.layout", "dms.input", "dms.windowrules" }) do
         print("active_profile: " .. tostring(err))
     end
 end
+
+-- dms ipc binds (exist only while this profile is active)
+local function dms(call)
+    return hl.dsp.exec_cmd("dms ipc call " .. call)
+end
+local keep = { locked = true, repeating = true }
+hl.bind("SUPER + SPACE", dms("spotlight toggle"))
+hl.bind("SUPER + V", dms("clipboard toggle"))
+hl.bind("SUPER + N", dms("notifications toggle"))
+hl.bind("SUPER + comma", dms("settings focusOrToggle"))
+hl.bind("SUPER + X", dms("powermenu toggle"))
+hl.bind("SUPER + ALT + L", dms("lock lock"))
+hl.bind("XF86AudioRaiseVolume", dms("audio increment 3"), keep)
+hl.bind("XF86AudioLowerVolume", dms("audio decrement 3"), keep)
+hl.bind("XF86AudioMute", dms("audio mute"), { locked = true })
+hl.bind("XF86AudioMicMute", dms("audio micmute"), { locked = true })
+hl.bind("XF86MonBrightnessUp", dms('brightness increment 5 ""'), keep)
+hl.bind("XF86MonBrightnessDown", dms('brightness decrement 5 ""'), keep)
+hl.bind("XF86AudioPlay", dms("mpris playPause"), { locked = true })
+hl.bind("XF86AudioNext", dms("mpris next"), { locked = true })
+hl.bind("XF86AudioPrev", dms("mpris previous"), { locked = true })
