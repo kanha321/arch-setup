@@ -7,7 +7,7 @@ from pathlib import Path
 
 from profile_switcher.clock import Clock, RealClock
 from profile_switcher.manifest import Manifest
-from profile_switcher.planner import Step
+from profile_switcher.planner import Step, make_plan
 from profile_switcher.runner import Runner
 
 DBUS_WAIT = 5.0
@@ -46,6 +46,10 @@ class Executor:
         flag = ["-D"] if delete else []
         return ["stow", "--no-folding", *flag, "-d", pkg_dir, "-t", str(self.home), *packages]
 
+    def stow(self, name: str) -> bool:
+        cmd = self._stow(name, delete=False)
+        return cmd is None or self.runner.run(cmd).returncode == 0
+
     def _command(self, step: Step) -> list[str] | None:
         m = self.manifests[step.profile]
         match step.kind:
@@ -78,7 +82,8 @@ class Executor:
 
     def _stop(self, m: Manifest) -> bool:
         if self.runner.run(["sh", "-c", m.stop], m.stop_timeout).returncode != 0:
-            return False
+            # a failing stop command is fine if the process is already gone
+            return bool(m.process) and self._gone(m)
         if not m.process or self._poll(lambda: self._gone(m), m.stop_timeout):
             return True
         for sig in ("TERM", "KILL"):
@@ -98,6 +103,11 @@ class Executor:
 
         return self._poll(free, DBUS_WAIT)
 
+    def _healthy(self, m: Manifest) -> bool:
+        probe = ["sh", "-c", m.health or "true"]
+        per_try = m.health_timeout
+        return self._poll(lambda: self.runner.run(probe, per_try).returncode == 0, m.health_timeout)
+
     def run_step(self, step: Step) -> bool:
         m = self.manifests[step.profile]
         if step.kind == "stop":
@@ -107,25 +117,30 @@ class Executor:
             if step.arg:
                 names += self.manifests[step.arg].dbus_names
             return self._wait_dbus(names)
+        if step.kind == "health":
+            return self._healthy(m)
         cmd = self._command(step)
         if cmd is None:
             return True
-        timeout = m.health_timeout if step.kind == "health" else 10
-        return self.runner.run(cmd, timeout).returncode == 0
+        return self.runner.run(cmd, 10).returncode == 0
 
     def _rollback(self, old: str, new: str, failed_kind: str = "") -> bool:
         if failed_kind in ("preflight", "stop"):
             self._write_journal({"state": "idle", "active": old})
             return True
         self._write_journal({"state": "rolling_back", "from": old, "to": new})
-        steps = (
+        steps = [
             Step("stop", new),
+            Step("wait_dbus", new),
             Step("unstow", new),
             Step("stow", old),
             Step("reload", old),
-            Step("start", old),
-        )
-        results = [self.run_step(s) for s in steps]
+        ]
+        if "post_stow" in self.manifests[old].hooks:
+            steps.append(Step("hook", old, "post_stow"))
+        steps.append(Step("start", old))
+        # the D-Bus wait is best effort: starting the old shell beats leaving none
+        results = [self.run_step(s) or s.kind == "wait_dbus" for s in steps]
         ok = all(results)
         if ok:
             self._write_journal({"state": "idle", "active": old})
@@ -143,10 +158,21 @@ class Executor:
                 return "rolled_back" if self._rollback(old, new, step.kind) else "failed"
         return "ok"
 
+    def _crashed_at_health(self, state: dict) -> bool:
+        if state.get("state") != "switching":
+            return False
+        plan = make_plan(self.manifests[state["from"]], self.manifests[state["to"]])
+        i = state.get("step", -1)
+        return 0 <= i < len(plan) and plan[i].kind == "health"
+
     def repair(self) -> str:
         if not self.journal.exists():
             return "idle"
         state = json.loads(self.journal.read_text())
         if state["state"] == "idle":
             return "idle"
-        return "repaired" if self._rollback(state["from"], state["to"]) else "failed"
+        old, new = state["from"], state["to"]
+        if self._crashed_at_health(state) and self.run_step(Step("health", new)):
+            self._write_journal({"state": "idle", "active": new})
+            return "completed"
+        return "repaired" if self._rollback(old, new) else "failed"

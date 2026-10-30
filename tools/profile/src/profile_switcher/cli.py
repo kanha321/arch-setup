@@ -6,10 +6,16 @@ import os
 from collections.abc import Mapping, Sequence
 from pathlib import Path
 
-from profile_switcher.doctor import find_overlaps, list_stow_files
+from profile_switcher.doctor import (
+    find_claim_conflicts,
+    find_overlaps,
+    list_stow_files,
+    read_text_files,
+    stray_files,
+)
 from profile_switcher.executor import Executor
 from profile_switcher.lock import LockHeld, switch_lock
-from profile_switcher.manifest import ManifestError
+from profile_switcher.manifest import Manifest, ManifestError
 from profile_switcher.planner import make_plan
 from profile_switcher.preflight import preflight
 from profile_switcher.profiles import load_manifests
@@ -31,7 +37,8 @@ def _parser() -> argparse.ArgumentParser:
     return ap
 
 
-def _doctor(dots: Path, names: list[str]) -> int:
+def _doctor(dots: Path, manifests: dict[str, Manifest]) -> int:
+    names = sorted(manifests)
     common = list_stow_files(dots / "common")
     bad = 0
     for name in names:
@@ -39,9 +46,20 @@ def _doctor(dots: Path, names: list[str]) -> int:
         for path, owners in find_overlaps(files).items():
             print(f"overlap: {path} owned by {', '.join(owners)}")
             bad = 1
+    claims = {n: list(getattr(manifests[n], "claims", None) or ()) for n in names}
+    for warning in find_claim_conflicts(claims, read_text_files(dots / "common")):
+        print(f"warning: {warning}")
     if not bad:
         print("doctor: ok")
     return bad
+
+
+def _stray_block(ex: Executor, name: str) -> str | None:
+    stray = stray_files(ex.dotfiles / "profiles" / name / "stow", ex.home)
+    if not stray:
+        return None
+    head = "stray files would block stow (move or remove them, never --adopt):"
+    return head + "\n  " + "\n  ".join(stray)
 
 
 def _switch(ex: Executor, state: dict | None, name: str, env: Mapping[str, str], runner) -> int:
@@ -58,6 +76,10 @@ def _switch(ex: Executor, state: dict | None, name: str, env: Mapping[str, str],
     problems = preflight(ex.manifests[name], runner, env)
     if problems:
         print("preflight failed:\n  " + "\n  ".join(problems))
+        return 1
+    block = _stray_block(ex, name)
+    if block:
+        print(block)
         return 1
     result = ex.execute(make_plan(ex.manifests[active], ex.manifests[name]), active, name)
     print(f"switch {active} -> {name}: {result}")
@@ -85,7 +107,7 @@ def main(
         print(f"manifest error: {e}")
         return 2
     if args.cmd == "doctor":
-        return _doctor(dots, sorted(manifests))
+        return _doctor(dots, manifests)
     if args.cmd == "status":
         st = _read_state(journal)
         print("no active profile (run: profile init NAME)" if st is None else json.dumps(st))
@@ -95,6 +117,13 @@ def main(
         return 2
     ex = Executor(runner, journal, dots, home, manifests, clock)
     if args.cmd == "init":
+        block = _stray_block(ex, args.name)
+        if block:
+            print(block)
+            return 1
+        if not ex.stow(args.name):
+            print(f"init failed: stow of {args.name} did not complete; nothing recorded")
+            return 1
         journal.parent.mkdir(parents=True, exist_ok=True)
         journal.write_text(json.dumps({"state": "idle", "active": args.name}))
         print(f"active profile recorded: {args.name}")
