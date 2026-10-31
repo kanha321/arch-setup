@@ -1,0 +1,84 @@
+#!/usr/bin/env bash
+# overview: read-only report of everything built so far (snapper layout + profile switcher)
+D=${DOTFILES:-$HOME/dotfiles}; T=$D/tools/profile
+PR=$HOME/.local/bin/profile; [ -x "$PR" ] || PR="env PYTHONPATH=$T/src python -m profile_switcher"
+P=0; F=0
+h()   { printf '\n== %s ==\n' "$1"; }
+chk() { if "${@:2}" >/dev/null 2>&1; then P=$((P+1)); printf '  [x] %s\n' "$1"; else F=$((F+1)); printf '  [ ] %s\n' "$1"; fi; }
+sudo -n true 2>/dev/null || sudo -v
+cachesub() { [ "$(stat -c %i ~/.cache)" = 256 ]; }
+clean()    { [ -z "$(git -C "$D" status --short)" ]; }
+idle()     { $PR status | grep -q '"idle"'; }
+docok()    { $PR doctor | grep -q 'doctor: ok'; }
+hyplink()  { readlink -f ~/.config/hypr/hyprland.lua | grep -q "$D/common"; }
+actlink()  { [ -L ~/.config/hypr/active_profile.lua ]; }
+binds()    { [ -f "$D/profiles/dms/stow/hypr/.config/hypr/dms/binds.lua" ] && [ -f "$D/profiles/caelestia/stow/hypr/.config/hypr/hyprland/keybinds.lua" ]; }
+
+h "CHECKLIST"
+echo " btrfs + snapper"
+chk "snapper root config" sudo snapper -c root list
+chk "snapper home config" sudo snapper -c home list
+chk "/.snapshots is @snapper/root" bash -c 'findmnt -no SOURCE /.snapshots | grep -q @snapper/root'
+chk "/home/.snapshots is @snapper/home" bash -c 'findmnt -no SOURCE /home/.snapshots | grep -q @snapper/home'
+chk "snapper mounts have nofail" bash -c '[ "$(grep -c "nofail.*@snapper" /etc/fstab)" -ge 2 ]'
+chk "snap-pac installed (pre/post pacman snapshots)" pacman -Q snap-pac
+chk "home timeline snapshots enabled" sudo grep -q '^TIMELINE_CREATE="yes"' /etc/snapper/configs/home
+chk "~/.cache is its own subvolume" cachesub
+chk "phase4-done milestone snapshots" bash -c 'sudo btrfs subvolume list / | grep -q phase4-done'
+echo " tooling"
+chk "stow, pytest, ruff installed" pacman -Q stow python-pytest ruff
+chk "profile command on PATH" command -v profile
+chk "launcher script in repo" test -x "$T/bin/profile"
+echo " profiles + live state"
+chk "profiles bare, caelestia, dms" bash -c "ls $D/profiles/{bare,caelestia,dms}/profile.toml"
+chk "hyprland.lua stowed from common" hyplink
+chk "active_profile.lua stowed" actlink
+chk "journal idle" idle
+chk "doctor ok" docok
+chk "keybind files for dms + caelestia" binds
+chk "captured shortcut/ipc notes" bash -c "ls $D/notes/caelestia-globalshortcuts.txt $D/notes/dms-ipc-targets.txt"
+echo " code"
+chk "dotfiles repo clean" clean
+chk "hardening tests pass" bash -c "cd $T && pytest -q tests/unit/test_hardening.py"
+printf '\n  %d done, %d open\n' $P $F
+
+h "REPO"
+echo "branch: $(git -C "$D" branch --show-current)   commits: $(git -C "$D" rev-list --count HEAD)"
+git -C "$D" log --format='  %h %ad %s' --date=format:'%d %b %H:%M' | head -15
+git -C "$D" branch | sed 's/^/  /'
+
+h "SWITCHER CODE"
+wc -l "$T"/src/profile_switcher/*.py | sed 's/^/  /'
+(cd "$T" && echo "  tests: $(pytest -q 2>&1 | tail -1)" && echo "  ruff:  $(ruff check . 2>&1 | tail -1)")
+
+h "PROFILES"
+python - "$D" <<'PY'
+import pathlib, sys, tomllib
+d = pathlib.Path(sys.argv[1])
+for f in sorted((d / "profiles").glob("*/profile.toml")):
+    m = tomllib.loads(f.read_text())
+    root = f.parent / "stow"
+    files = sorted(str(p.relative_to(root)) for p in root.rglob("*") if p.is_file()) if root.is_dir() else []
+    print(f"  {m['name']}: start={m['start']!r} stop={m['stop']!r} process={m.get('process')}")
+    print(f"      claims={','.join(m.get('claims', [])) or '-'} dbus={len(m.get('dbus_names', []))} health={'yes' if m.get('health') else 'no'}")
+    print(f"      stows {m.get('stow', [])}: {', '.join(files) or '-'}")
+print("  common:")
+for p in sorted((d / "common").rglob("*")):
+    if p.is_file():
+        print("      " + str(p.relative_to(d / "common")))
+PY
+
+h "LIVE STATE"
+echo "journal : $($PR status)"
+ls -la ~/.config/hypr | grep -E -- '->' | sed -E 's/.* ([^ ]+ -> .*)/  \1/'
+echo "dms procs: $(pgrep -fc '[d]ms run')   caelestia procs: $(pgrep -fc '[q]s -c caelestia')"
+echo "binds    : $(hyprctl binds 2>/dev/null | grep -cE '^[[:space:]]*key:')   config errors: $(hyprctl configerrors 2>/dev/null | grep -c .)"
+$PR doctor | sed 's/^/doctor  : /'
+
+h "SNAPSHOTS"
+findmnt -no TARGET,SOURCE /.snapshots; findmnt -no TARGET,SOURCE /home/.snapshots
+echo "-- manual milestones"; sudo btrfs subvolume list / | grep -o '@snapshots/.*' | sed 's/^/  /'
+for c in root home; do echo "-- snapper $c (last 5)"; sudo snapper -c $c list | tail -5; done
+echo "-- timers"; systemctl list-timers 'snapper-*' --no-pager | head -4
+echo "-- space"; sudo btrfs filesystem usage -h / | grep -E 'Device size|Used|Free \(estimated\)' | head -3
+echo "-- backups"; ls /etc/fstab.bak-* ~/.config/hypr/*.phase1-bak 2>/dev/null | sed 's/^/  /'
