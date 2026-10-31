@@ -14,7 +14,7 @@ hl.monitor({
 hl.on("hyprland.start", function()
     hl.exec_cmd(terminal)
     -- bring back the shell of the last active profile (profile resume)
-    hl.exec_cmd("$HOME/.local/bin/profile resume")
+    hl.exec_cmd("( date -Is; $HOME/.local/bin/profile resume ) >>$HOME/.local/state/profile-switcher/hook.log 2>&1")
 end)
 
 hl.bind(mainMod .. " + Return", hl.dsp.exec_cmd(terminal))
