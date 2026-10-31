@@ -1,0 +1,1 @@
+dms setup binds (dms 2.0.0) copied to profiles/dms; deviation: removed the SUPER + Return kitty line (common binds it). If DMS rewrites binds.lua over the symlink, the stray-file check flags it.
