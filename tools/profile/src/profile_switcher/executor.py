@@ -13,6 +13,8 @@ from profile_switcher.runner import Runner
 DBUS_WAIT = 5.0
 KILL_WAIT = 2.0
 POLL = 0.2
+RESUME_WAIT = 10.0
+START_RETRY = 15.0
 
 
 class Executor:
@@ -113,6 +115,20 @@ class Executor:
         probe = ["sh", "-c", m.health or "true"]
         per_try = m.health_timeout
         return self._poll(lambda: self.runner.run(probe, per_try).returncode == 0, m.health_timeout)
+
+    def resume(self, name: str) -> str:
+        """Bring the recorded profile's shell up at login; never touches the journal."""
+        m = self.manifests[name]
+        if not m.process:
+            return "nothing to start"
+        # the profile's own config may autostart the shell, so give it time to appear first
+        if self._poll(lambda: not self._gone(m), RESUME_WAIT):
+            return "already running"
+        start = ["sh", "-c", m.start]
+        # retry: a start can fail early in the session (e.g. the graphical target is not up yet)
+        if not self._poll(lambda: self.runner.run(start, 10).returncode == 0, START_RETRY):
+            return "failed: the start command never succeeded"
+        return "started" if self._healthy(m) else "started but not healthy"
 
     def run_step(self, step: Step) -> bool:
         m = self.manifests[step.profile]

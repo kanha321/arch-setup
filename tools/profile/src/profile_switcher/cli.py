@@ -4,6 +4,7 @@ import argparse
 import json
 import os
 from collections.abc import Mapping, Sequence
+from datetime import datetime
 from pathlib import Path
 
 from profile_switcher.doctor import (
@@ -31,6 +32,7 @@ def _parser() -> argparse.ArgumentParser:
     sub = ap.add_subparsers(dest="cmd", required=True)
     sub.add_parser("status")
     sub.add_parser("repair")
+    sub.add_parser("resume")
     sub.add_parser("doctor")
     sub.add_parser("init").add_argument("name")
     sub.add_parser("switch").add_argument("name")
@@ -88,6 +90,39 @@ def _switch(ex: Executor, state: dict | None, name: str, env: Mapping[str, str],
     return 0 if result == "ok" else 1
 
 
+def _resume(ex: Executor, journal: Path, log: Path) -> int:
+    def note(msg: str) -> None:
+        print(msg)
+        try:
+            log.parent.mkdir(parents=True, exist_ok=True)
+            with log.open("a") as f:
+                f.write(f"{datetime.now().isoformat(timespec='seconds')} {msg}\n")
+        except OSError:
+            pass
+
+    try:
+        state = _read_state(journal)
+    except (OSError, ValueError):
+        note("resume: journal unreadable, leaving it alone")
+        return 0
+    if state is None:
+        note("resume: no profile recorded, nothing to do")
+        return 0
+    if state.get("state") != "idle":
+        note(f"resume: journal says {state.get('state')}, repairing first")
+        note(f"resume: repair: {ex.repair()}")
+        state = _read_state(journal)
+        if state is None or state.get("state") != "idle":
+            note("resume: journal still not idle, run: profile repair")
+            return 0
+    name = state.get("active")
+    if name not in ex.manifests:
+        note(f"resume: unknown profile {name!r} in the journal")
+        return 0
+    note(f"resume: {name}: {ex.resume(name)}")
+    return 0
+
+
 def main(
     argv: Sequence[str] | None = None,
     env: Mapping[str, str] | None = None,
@@ -132,6 +167,8 @@ def main(
         return 0
     try:
         with switch_lock(lock):
+            if args.cmd == "resume":
+                return _resume(ex, journal, state_dir / "resume.log")
             if args.cmd == "repair":
                 result = ex.repair()
                 print(f"repair: {result}")
@@ -139,4 +176,4 @@ def main(
             return _switch(ex, _read_state(journal), args.name, env, runner)
     except LockHeld as e:
         print(str(e))
-        return 3
+        return 0 if args.cmd == "resume" else 3

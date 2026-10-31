@@ -13,6 +13,8 @@ hl.monitor({
 
 hl.on("hyprland.start", function()
     hl.exec_cmd(terminal)
+    -- bring back the shell of the last active profile (profile resume)
+    hl.exec_cmd("$HOME/.local/bin/profile resume")
 end)
 
 hl.bind(mainMod .. " + Return", hl.dsp.exec_cmd(terminal))
