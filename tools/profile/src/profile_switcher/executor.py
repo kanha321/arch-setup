@@ -31,6 +31,7 @@ class Executor:
         self.home = home
         self.manifests = manifests
         self.clock = clock or RealClock()
+        self.last_failure: str | None = None
 
     def _write_journal(self, data: dict) -> None:
         self.journal.parent.mkdir(parents=True, exist_ok=True)
@@ -81,10 +82,15 @@ class Executor:
         return self.runner.run(["pgrep", "-f", m.process or ""]).returncode != 0
 
     def _stop(self, m: Manifest) -> bool:
-        if self.runner.run(["sh", "-c", m.stop], m.stop_timeout).returncode != 0:
-            # a failing stop command is fine if the process is already gone
-            return bool(m.process) and self._gone(m)
-        if not m.process or self._poll(lambda: self._gone(m), m.stop_timeout):
+        ok = self.runner.run(["sh", "-c", m.stop], m.stop_timeout).returncode == 0
+        if not m.process:
+            return ok
+        if ok:
+            gone = self._poll(lambda: self._gone(m), m.stop_timeout)
+        else:
+            # a failed or timed-out stop command: fine if the process is gone, else escalate
+            gone = self._gone(m)
+        if gone:
             return True
         for sig in ("TERM", "KILL"):
             self.runner.run(["pkill", f"-{sig}", "-f", m.process])
@@ -149,12 +155,14 @@ class Executor:
         return ok
 
     def execute(self, plan: list[Step], old: str, new: str) -> str:
+        self.last_failure = None
         for i, step in enumerate(plan):
             if step.kind == "commit":
                 self._write_journal({"state": "idle", "active": new})
                 continue
             self._write_journal({"state": "switching", "from": old, "to": new, "step": i})
             if not self.run_step(step):
+                self.last_failure = f"{step.kind} {step.profile}"
                 return "rolled_back" if self._rollback(old, new, step.kind) else "failed"
         return "ok"
 

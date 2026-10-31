@@ -83,6 +83,8 @@ def _switch(ex: Executor, state: dict | None, name: str, env: Mapping[str, str],
         return 1
     result = ex.execute(make_plan(ex.manifests[active], ex.manifests[name]), active, name)
     print(f"switch {active} -> {name}: {result}")
+    if ex.last_failure:
+        print(f"failed step: {ex.last_failure}")
     return 0 if result == "ok" else 1
 
 
