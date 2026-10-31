@@ -16,8 +16,8 @@ hl.on("hyprland.start", function()
 end)
 
 hl.bind(mainMod .. " + Return", hl.dsp.exec_cmd(terminal))
-hl.bind(mainMod .. " + C", hl.dsp.window.close())
-hl.bind(mainMod .. " + M", hl.dsp.exec_cmd("hyprctl dispatch 'hl.dsp.exit()'"))
+hl.bind(mainMod .. " + SHIFT + Q", hl.dsp.window.close())
+hl.bind("CTRL + ALT + SHIFT + Q", hl.dsp.exec_cmd("hyprctl dispatch 'hl.dsp.exit()'"))
 
 -- Per-profile include (stowed by the profile switcher). Cleared first so a
 -- reload always re-runs it instead of returning a cached module.

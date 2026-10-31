@@ -1,0 +1,1 @@
+caelestia-dots/caelestia d4c24f8 fix(hypr)!: replace deprecated `lock_active()` with `lock()` (#535); hypr copied unmodified except hyprland.lua -> caelestia_dots.lua (cache reset prepended)
