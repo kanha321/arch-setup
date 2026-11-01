@@ -129,5 +129,15 @@
   "configVersion": 42,
   "dmsWindowsFloatingSeeded": [
     "hyprland"
-  ]
+  ],
+  "connectedFrameBarStyleBackups": {
+    "default": {
+      "shadowIntensity": 0,
+      "squareCorners": false,
+      "attachToScreenEdge": false,
+      "gothCornersEnabled": false,
+      "borderEnabled": false
+    }
+  },
+  "frameEnabled": true
 }
