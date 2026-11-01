@@ -8,4 +8,4 @@ dbus_names     = ["org.freedesktop.Notifications", "org.kde.StatusNotifierWatche
 claims         = ["bar", "notifications", "tray", "launcher", "lock", "wallpaper"]
 health         = "for i in 1 2 3 4 5 6 7 8 9 10; do qs -c caelestia ipc show >/dev/null 2>&1 && exit 0; sleep 1; done; exit 1"
 health_timeout = 15
-stow           = ["hypr", "caelestia"]
+stow           = ["hypr", "caelestia", "btop", "nvim", "spicetify"]
