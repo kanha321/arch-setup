@@ -1,0 +1,7 @@
+
+[Default Applications]
+text/html=thorium-browser-avx2.desktop
+x-scheme-handler/http=thorium-browser-avx2.desktop
+x-scheme-handler/https=thorium-browser-avx2.desktop
+x-scheme-handler/about=thorium-browser-avx2.desktop
+x-scheme-handler/unknown=thorium-browser-avx2.desktop
