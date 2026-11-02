@@ -3,6 +3,7 @@ local terminal = "kitty"
 local mainMod = "SUPER"
 
 hl.env("AQ_DRM_DEVICES", "/dev/dri/nvidia-dgpu:/dev/dri/intel-igpu")
+hl.env("ELECTRON_OZONE_PLATFORM_HINT", "wayland")
 
 hl.monitor({
     output = "",
