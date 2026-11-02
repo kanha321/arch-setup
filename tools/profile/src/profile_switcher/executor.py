@@ -122,7 +122,7 @@ class Executor:
         if not m.process:
             return "nothing to start"
         # the profile's own config may autostart the shell, so give it time to appear first
-        if self._poll(lambda: not self._gone(m), RESUME_WAIT):
+        if self._poll(lambda: not self._gone(m), float(m.resume_wait)):
             return "already running"
         start = ["sh", "-c", m.start]
         # retry: a start can fail early in the session (e.g. the graphical target is not up yet)

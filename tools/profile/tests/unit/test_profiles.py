@@ -39,5 +39,8 @@ def test_new_fields_default_and_validate():
     assert m.process is None and m.dbus_names == [] and m.stop_timeout == 5
     with pytest.raises(ManifestError, match="stop_timeout"):
         parse_manifest(base + "stop_timeout = 0\n")
+    assert m.resume_wait == 10
+    with pytest.raises(ManifestError, match="resume_wait"):
+        parse_manifest(base + "resume_wait = 0\n")
     with pytest.raises(ManifestError, match="dbus_names"):
         parse_manifest(base + 'dbus_names = "x"\n')

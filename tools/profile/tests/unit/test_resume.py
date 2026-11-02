@@ -44,7 +44,11 @@ def mf(name, extra=""):
 
 
 def mk(tmp_path, runner, clock):
-    ms = {"a": mf("a", 'process = "proc-a"'), "bare": mf("bare")}
+    ms = {
+        "a": mf("a", 'process = "proc-a"'),
+        "bare": mf("bare"),
+        "fast": mf("fast", 'process = "proc-fast"\nresume_wait = 1'),
+    }
     return Executor(
         runner, tmp_path / "state.json", tmp_path / "dots", tmp_path / "home", ms, clock
     )
@@ -165,3 +169,10 @@ def test_cli_resume_leaves_a_broken_journal_alone(tmp_path, clock):
     assert main(["resume"], env=env, runner=r, clock=clock) == 0
     assert read_state(env)["state"] == "broken"
     assert list(pgrep("a")) not in r.calls
+
+
+def test_resume_wait_is_configurable_per_profile(tmp_path, clock):
+    r = Script({pgrep("fast"): NEVER})
+    assert mk(tmp_path, r, clock).resume("fast") == "started"
+    assert sh("start-fast") in r.calls
+    assert clock.t < 5

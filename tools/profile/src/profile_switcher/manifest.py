@@ -26,6 +26,7 @@ class Manifest:
     process: str | None = None
     dbus_names: list[str] = field(default_factory=list)
     stop_timeout: int = 5
+    resume_wait: int = 10
 
 
 def _str_list(data: dict, key: str) -> list[str]:
@@ -71,4 +72,5 @@ def parse_manifest(text: str) -> Manifest:
         process=data.get("process"),
         dbus_names=_str_list(data, "dbus_names"),
         stop_timeout=_positive_int(data, "stop_timeout", 5),
+        resume_wait=_positive_int(data, "resume_wait", 10),
     )
